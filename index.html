@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Cache-Control"
+      content="no-cache, no-store, must-revalidate"
+    />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta http-equiv="Cache" content="no-cache" />
+    <meta http-equiv="Pragma-Control" content="no-cache" />
+    <meta http-equiv="Cache-directive" content="no-cache" />
+    <meta http-equiv="Pragma-directive" content="no-cache" />
+    <meta http-equiv="Cache-Control" content="no-cache" />
+    <meta http-equiv="Pragma-directive: no-cache" />
+    <meta http-equiv="Cache-directive: no-cache" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="VA3HDL Ham Radio Dashboard" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css?family=Victor Mono|Audiowide|Bebas Neue"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@100..900&display=swap"
+      rel="stylesheet"
+    />
+    <title>Ham Radio Dashboard</title>
+    <!--
+	Hamdash
+	License: MIT
+  Copyright (c) 2025 Pablo Sabbag, VA3HDL
+	https://www.va3hdl.com/projects/hamdash
+
+  Credits:
+  Project inspired by the concept of DAVID A GOLD callsign N2MXX published at https://nject.us/HAMSHACK-DASHBOARD-O.html
+--
+
+.d8888. d888888b db    db db      d88888b .d8888.
+88'  YP `~~88~~' `8b  d8' 88      88'     88'  YP
+`8bo.      88     `8bd8'  88      88ooooo `8bo.
+  `Y8b.    88       88    88      88~~~~~   `Y8b.
+db   8D    88       88    88booo. 88.     db   8D
+`8888Y'    YP       YP    Y88888P Y88888P `8888Y'
+
+
+-->
+    <link href="/styles.css" rel="stylesheet" />
+
+    <!--
+.d8888.  .o88b. d8888b. d888888b d8888b. d888888b .d8888.
+88'  YP d8P  Y8 88  `8D   `88'   88  `8D `~~88~~' 88'  YP
+`8bo.   8P      88oobY'    88    88oodD'    88    `8bo.
+  `Y8b. 8b      88`8b      88    88~~~      88      `Y8b.
+db   8D Y8b  d8 88 `88.   .88.   88         88    db   8D
+`8888Y'  `Y88P' 88   YD Y888888P 88         YP    `8888Y'
+-->
+    <script src="wheelzoom.js"></script>
+    <script src="index.js" ></script>
+  </head>
+  <!--
+d8888b.  .d88b.  d8888b. db    db
+88  `8D .8P  Y8. 88  `8D `8b  d8'
+88oooY' 88    88 88   88  `8bd8'
+88~~~b. 88    88 88   88    88
+88   8D `8b  d8' 88  .8D    88
+Y8888P'  `Y88P'  Y8888D'    YP
+-->
+  <body onload="main()">
+    <div id="iFrameContainer" class="iframe-container">
+      <iframe id="FullScreen" class="full-screen" src="" title="Zoom"></iframe>
+      <!-- Settings Page Div -->
+      <div id="settingsPage" class="settings-Page">
+        <div id="fixedSection" class="fixed-section">
+          <button id="saveConfig">Save Settings to Local Storage</button>
+          <button id="resetConfig">Reset to Defaults</button>
+          <button id="deleteConfig">Delete Settings from Local Storage</button>
+          <button id="backupConfig">Backup Settings to JSON file</button>
+          <button id="restoreConfig">Restore Settings from JSON file</button>
+          <button id="importConfig">Import from config.js file</button>
+          <button id="exportConfig">Export to config.js file</button>
+        </div>
+
+        <h1>Dashboard Setup</h1>
+        <div id="configForm">
+          <!-- Settings Source Selection -->
+          <label>Current Settings Source:</label><span id="currentSettingsSource"></span>
+          <div class="section">
+            <div class="radio-group">
+              <label>Select Settings Source:</label>
+              <input
+                type="radio"
+                id="sourceLocalStorage"
+                name="settingsSource"
+                value="localStorage"
+              />
+              <label for="sourceLocalStorage">Browser Local Storage</label>
+              <input
+                type="radio"
+                id="sourceFile"
+                name="settingsSource"
+                value="file"
+              />
+              <label for="sourceFile">config.js file</label>
+              <font size=2em>(Please choose the source of the settings for the next time the dashboard is loaded.)</font>
+            </div>
+          </div>
+
+          <!-- Top Bar Text -->
+          <div class="section">
+            <label for="CenterText">Top Bar Center Text:</label>
+            <input type="text" id="CenterText" />
+          </div>
+
+          <!-- Grid Layout -->
+          <div class="section">
+            <label>Grid Layout:</label>
+            <label for="layout_cols">Columns:</label>
+            <input type="number" id="layout_cols" min="1" />
+            <label for="layout_rows">Rows:</label>
+            <input type="number" id="layout_rows" min="1" />
+            <font size=2em>(The number of Dashboard Items table will adjust automatically for the grid layout selected here.)</font>
+          </div>
+
+          <!-- Menu Items -->
+          <div class="section">
+            <label>Menu Items:</label>
+            <table id="menuTable">
+              <thead>
+                <tr>
+                  <th>Color</th>
+                  <th>Text</th>
+                  <th>URL</th>
+                  <th>Scale</th>
+                  <th>Side</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <button id="addMenuItem">Add Menu Item</button>
+          </div>
+
+          <!-- Dashboard Items -->
+          <div class="section">
+            <label>Dashboard Items:</label>
+            <table id="dashboardTable">
+              <thead>
+                <tr>
+                  <th>Tile Title</th>
+                  <th>Tile URLs</th>
+                  <th>URL Rotation Interval (ms)</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <!-- Feed Items -->
+          <div class="section">
+            <label>Feed Items:</label>
+            <table id="feedTable">
+              <thead>
+                <tr>
+                  <th>Feed URL</th>
+                  <th>Refresh Interval (minutes)</th>
+                  <th>Actions</th>              
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <button id="addFeedItem">Add Feed Item</button>
+          </div>
+
+        </div>
+      </div> <!-- End of Div Settings page -->
+    </div>
+
+    <div id="imgZoom" class="img-zoom">
+      <img
+        class="image-large"
+        id="ImageLarge"
+        alt="pic"
+        ondblclick="larger(event);"
+        oncontextmenu="rotate(event);"
+      />
+    </div>
+
+    <div id="myMenu" class="menu">
+      <!-- Left Menu container -->
+    </div>
+
+    <div id="myMenuR" class="menuR">
+      <!-- Right Menu container -->
+    </div>
+
+    <div id="defaultFrame" class="default-frame">
+      <div class="top-bar">
+        <div
+          id="topBarLeft"
+          class="child"
+          style="text-align: left; padding-left: 7px; color: blanchedalmond"
+        >
+          &nbsp;
+        </div>
+        <div
+          id="topBarCenter"
+          class="child"
+          style="text-align: center; color: rgb(0, 119, 255)"
+        >
+          &nbsp;
+        </div>
+        <div
+          id="topBarRight"
+          class="child"
+          style="text-align: right; padding-right: 5px; color: aquamarine"
+        >
+          &nbsp;
+        </div>
+      </div>
+      <div id="dash" class="dashboard">
+        <!-- Images container -->
+      </div>
+    </div>
+
+    <div id="overlay" class="overlay">
+      <div class="close-btn" onclick="hideOverlay()">&#10006;</div>
+      <div class="overlay-content">
+        <div class="array-container">
+          <div class="array-title">
+            <b>Full config.js file: </b>
+            <a href="config.js" target="_blank" style="color: white"
+              >(Open in new tab)</a
+            >
+            <p></p>
+          </div>
+        </div>
+        <div class="array-container">
+          <div class="array-title"><b>Menu Options:</b></div>
+          <div id="array1" class="array-content"></div>
+        </div>
+        <div class="array-container">
+          <div class="array-title"><b>Image Sources:</b></div>
+          <div id="array2" class="array-content"></div>
+        </div>
+        <div class="array-container">
+          <div class="array-title"><b>Feed Sources:</b></div>
+          <div id="array3" class="array-content"></div>
+        </div>
+        <div class="array-container">
+          <div class="array-title"><b>Development by:</b></div>
+          <div id="array4" class="array-content"></div>
+        </div>
+      </div>
+    </div>
+
+  </body>
+</html>
