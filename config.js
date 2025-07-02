@@ -1,111 +1,174 @@
-const disableSetup = false;
-var topBarCenterText = `VA3HDL - FN04ga`;
+// CUT START
+var disableSetup = false; // Manually set to true to disable setup page menu option
+var topBarCenterText = "KR4DHF";
 
-// Grid layout
+// Grid layout desired
 var layout_cols = 4;
 var layout_rows = 3;
 
 // Menu items
-// Structure is as follows HTML Color code, Option, target URL, scaling 1=Original Size, side (optional, nothing is Left, "R" is Right)
+// Structure is as follows: HTML Color code, Option, target URL, scaling 1=Original Size, side (optional, nothing is Left, "R" is Right)
 // The values are [color code, menu text, target link, scale factor, side],
 // add new lines following the structure for extra menu options. The comma at the end is important!
 var aURL = [
-  ["2196F3", "CLUBLOG", "https://clublog.org/livestream/VA3HDL", "1.7"],
   [
-    "2196F3",
-    "CONTEST",
-    "https://www.contestcalendar.com/fivewkcal.html",
-    "1",
+    "#2196f3",
+    "Propagation Map",
+    "https://muf.hb9vqq.ch/",
+    1,
+    "L"
   ],
-  ["2196F3", "DX CLUSTER", "https://dxcluster.ha8tks.hu/map/", "1"],
   [
-    "2196F3",
+    "#2196f3",
+    "DX CLUSTER",
+    "https://dxcluster.ha8tks.hu/map/",
+    1,
+    "L"
+  ],
+  [
+    "#2196f3",
     "LIGHTNING",
-    "https://map.blitzortung.org/#3.87/36.5/-89.41",
-    "1",
-    "R",
-  ],
-  ["2196F3", "PISTAR", "http://pi-star.local/", "1.2"],
-  [
-    "2196F3",
-    "RADAR",
-    "https://weather.gc.ca/?layers=alert,radar&center=43.39961001,-78.53212031&zoom=6&alertTableFilterProv=ON",
-    "1",
+    "https://map.blitzortung.org/#3.87/34.07/-78.15",
+    1,
     "R"
   ],
-  ["2196F3", "TIME.IS", "https://time.is/", "1", "R"],
   [
-    "2196F3",
+    "#f41f1f",
+    "WPSD",
+    "http://wpsd.local/",
+    1,
+    "L"
+  ],
+  [
+    "#2196f3",
     "WEATHER",
-    "https://openweathermap.org/weathermap?basemap=map&cities=true&layer=temperature&lat=44.0157&lon=-79.4591&zoom=5",
-    "1",
-    "R",
+    "https://openweathermap.org/weathermap?basemap=map&cities=true&layer=temperature&lat=34.07&lon=-78.15&zoom=5",
+    1,
+    "R"
   ],
   [
-    "2196F3",
+    "#2196f3",
     "WINDS",
-    "https://earth.nullschool.net/#current/wind/surface/level/orthographic=-78.79,44.09,3000",
-    "1",
-    "R",
+    "https://earth.nullschool.net/#current/wind/surface/level/orthographic=-78.15,34.07,3000",
+    1,
+    "R"
   ],
+  [
+    "#000000",
+    "N4GM",
+    "https://www.n4gm.org/",
+    1,
+    "L"
+  ]
 ];
 
-// Dashboard items
-// Structure is Title, Image Source URL
-// [Title, Image Source URL],
-// the comma at the end is important!
-// You can't add more items because there are only 12 placeholders on the dashboard
-// but you can replace the titles and the images with anything you want.
-var aIMG = [
-  ["RADAR", "https://radar.weather.gov/ridge/standard/CONUS_loop.gif"],
-  [
-    "LOCAL RADAR",
-    "https://radar.weather.gov/ridge/standard/KNQA_loop.gif",
-  ],
-  [
-    "NOAA D-RAP",
-    "https://services.swpc.noaa.gov/images/animations/d-rap/global/d-rap/latest.png",
-  ],
-  [
-    "ISS POSITION",
-    "https://www.heavens-above.com/orbitdisplay.aspx?icon=iss&width=600&height=300&mode=M&satid=25544",
-  ],
-  [
-    "SATELLITE CAN",
-    "https://cdn.star.nesdis.noaa.gov/GOES16/GLM/SECTOR/can/EXTENT3/GOES16-CAN-EXTENT3-1125x560.gif",
-  ],
-  [
-    "SATELLITE CGL",
-    "https://cdn.star.nesdis.noaa.gov/GOES16/GLM/SECTOR/cgl/EXTENT3/GOES16-CGL-EXTENT3-600x600.gif",
-  ],
-  [
-    "LIGHTNING",
-    "https://images.lightningmaps.org/blitzortung/america/index.php?animation=usa",
-  ],
-  [
-    "LIGHTNING LOCAL",
-    "https://www.blitzortung.org/en/Images/image_b_ny.png",
-  ],
-  ["YOUTUBE EXAMPLE", "iframe|https://www.youtube.com/embed/fzPFaXAV_2Y?autoplay=1&mute=1"],
-  [
-    "WEBSITE EXAMPLE",
-    "iframe|https://globe.adsbexchange.com/?airport=YYZ",
-  ],
-  ["VIDEO EXAMPLE", "https://himawari8.nict.go.jp/movie/720/20240611_pifd.mp4"],
-  ["HF PROPAGATION",
-    "https://www.hamqsl.com/solar101vhf.php"],
-];
-
-// Image rotation intervals in milliseconds per tile - If the line below is commented, all tiles will be rotated every 30000 milliseconds (30s)
-var tileDelay = [
-  11200,10000,11000,10100,
-  10200,10500,10300,10600,
-  30400,60700,60900,10800
-];
-
-// RSS feed items
-// Structure is [feed URL, refresh interval in minutes]
+// Feed items
+// Structure is as follows: target URL
+// The values are [target link]
 var aRSS = [
-  ["https://www.amsat.org/feed/", 60],           // Example RSS feed, refresh every 60 minutes
-  ["https://daily.hamweekly.com/atom.xml", 120], // Example Atom feed, refresh every 120 minutes
-  ];
+  [
+    "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=63&CID=Severe-Weather-7",
+    5
+  ],
+  [
+    "https://www.nhc.noaa.gov/xml/TWDAT.xml",
+    60
+  ],
+  [
+    "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=1&CID=Emergency-Management-15",
+    60
+  ]
+];
+
+// Dashboard Tiles items
+// Tile Structure is Title, Source URL
+// To display a website on the tiles use "iframe|" keyword before the tile URL
+// [Title, Source URL],
+// the comma at the end is important!
+var aIMG = [
+  [
+    "Radar",
+    "https://radar.weather.gov/ridge/standard/CONUS-LARGE_loop.gif",
+    "https://radar.weather.gov/ridge/standard/SOUTHEAST_loop.gif",
+    "https://radar.weather.gov/ridge/standard/KLTX_loop.gif",
+    "https://radar.weather.gov/ridge/standard//base_velocity/KLTX_loop.gif"
+  ],
+  [
+    "GOES19 CONUS",
+    "https://cdn.star.nesdis.noaa.gov/GOES19/ABI/CONUS/Sandwich/GOES19-CONUS-Sandwich-625x375.gif",
+    "https://cdn.star.nesdis.noaa.gov/GOES16/GLM/CONUS/EXTENT3/GOES16-CONUS-EXTENT3-625x375.gif"
+  ],
+  [
+    "GOES19 Southeast",
+    "https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/se/Sandwich/GOES19-SE-Sandwich-600x600.gif",
+    "https://cdn.star.nesdis.noaa.gov/GOES19/GLM/SECTOR/se/EXTENT3/GOES19-SE-EXTENT3-600x600.gif"
+  ],
+  [
+    "GOES19 Atlantic Basin",
+    "https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/taw/Sandwich/GOES19-TAW-Sandwich-900x540.gif",
+    "https://cdn.star.nesdis.noaa.gov/GOES19/GLM/SECTOR/taw/EXTENT3/GOES19-TAW-EXTENT3-900x540.gif"
+  ],
+  [
+    "K4IR Scanner",
+    "iframe|https://www.broadcastify.com/webPlayer/24391"
+  ],
+  [
+    "Area Live Cams",
+    "iframe|https://www.surfchex.com/sppssl.php",
+    "iframe|https://www.youtube.com/embed/sBtvpwKH2BE?autoplay=1&mute=1",
+    "iframe|https://www.youtube.com/embed/R0oOOmGt7mg?autoplay=1&mute=1",
+    "iframe|https://www.youtube.com/embed/lcANlrXCR0Q?autoplay=1&mute=1",
+    "iframe|https://api.wetmet.net/widgets/stream/frame.php?ruc=217-02-01&width=&height=",
+    "iframe|https://www.youtube.com/embed/GKOyGoRE0Tg?autoplay=1&mute=1"
+  ],
+  [
+    "ISS Live Feed",
+    "iframe|https://www.youtube.com/embed/H999s0P1Er0?autoplay=1&mute=1"
+  ],
+  [
+    "GOES19 Solar",
+    "https://cdn.star.nesdis.noaa.gov/GOES19/SUVI/FD/He303/GOES19-SUVI-He303-600x600.gif",
+    "https://cdn.star.nesdis.noaa.gov/GOES19/SUVI/FD/Fe284/GOES19-SUVI-Fe284-600x600.gif",
+    "https://cdn.star.nesdis.noaa.gov/GOES19/SUVI/FD/Fe171/GOES19-SUVI-Fe171-600x600.gif"
+  ],
+  [
+    "KLTX Local Wx",
+    "https://www.weather.gov//images/ilm/WxStory/WeatherStory1.png",
+    "https://www.weather.gov//images/ilm/WxStory/WeatherStory5.png",
+    "https://www.weather.gov/images/rah/statebrief/MaxT_SFC-Day1State.png"
+  ],
+  [
+    "Ocean Stats",
+    "https://wave.marineweather.net/itide/tides/png/nc_oak_island_yaupon_beach.png",
+    "https://oifdweather.pythonanywhere.com/static/current_flag.png",
+    "https://www.ospo.noaa.gov/data/cb/ssta/ssta.daily.current.png"
+  ],
+  [
+    "Hurricane Outlook",
+    "https://www.nhc.noaa.gov/xgtwo/two_atl_7d0.png",
+    "https://www.nhc.noaa.gov/xgtwo/two_pac_7d0.png"
+  ],
+  [
+    "Propagation Stats",
+    "https://www.hamqsl.com/solarbc.php",
+    "https://prop.kc2g.com/renders/current/mufd-normal-now.svg"
+  ]
+];
+
+// Image rotation intervals in milliseconds per tile - If the line below is commented, tiles will be rotated every 5000 milliseconds (5s)
+var tileDelay = [
+  10000,
+  10000,
+  10000,
+  10000,
+  0,
+  10000,
+  0,
+  5000,
+  5000,
+  5000,
+  5000,
+  5000
+];
+
+// CUT END
