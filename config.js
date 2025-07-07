@@ -114,22 +114,19 @@ var aIMG = [
   ],
   [
     "Area Live Cams",
-    "iframe|https://www.surfchex.com/sppssl.php",
     "iframe|https://www.youtube.com/embed/sBtvpwKH2BE?autoplay=1&mute=1",
     "iframe|https://www.youtube.com/embed/R0oOOmGt7mg?autoplay=1&mute=1",
     "iframe|https://www.youtube.com/embed/lcANlrXCR0Q?autoplay=1&mute=1",
-    "iframe|https://api.wetmet.net/widgets/stream/frame.php?ruc=217-02-01&width=&height=",
+    "iframe|https://api.wetmet.net/widgets/stream/frame.php?ruc=217-02-01&width=400&height=300",
     "iframe|https://www.youtube.com/embed/GKOyGoRE0Tg?autoplay=1&mute=1"
+  ],
+  [
+    "Southport Cam",
+    "iframe|https://www.surfchex.com/sppssl.php"
   ],
   [
     "ISS Live Feed",
     "iframe|https://www.youtube.com/embed/H999s0P1Er0?autoplay=1&mute=1"
-  ],
-  [
-    "GOES19 Solar",
-    "https://cdn.star.nesdis.noaa.gov/GOES19/SUVI/FD/He303/GOES19-SUVI-He303-600x600.gif",
-    "https://cdn.star.nesdis.noaa.gov/GOES19/SUVI/FD/Fe284/GOES19-SUVI-Fe284-600x600.gif",
-    "https://cdn.star.nesdis.noaa.gov/GOES19/SUVI/FD/Fe171/GOES19-SUVI-Fe171-600x600.gif"
   ],
   [
     "KLTX Local Wx",
@@ -163,8 +160,8 @@ var tileDelay = [
   10000,
   0,
   10000,
+  100000,
   0,
-  5000,
   5000,
   5000,
   5000,
