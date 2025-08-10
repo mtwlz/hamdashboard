@@ -118,7 +118,8 @@ var aIMG = [
     "iframe|https://www.youtube.com/embed/R0oOOmGt7mg?autoplay=1&mute=1",
     "iframe|https://www.youtube.com/embed/lcANlrXCR0Q?autoplay=1&mute=1",
     "iframe|https://api.wetmet.net/widgets/stream/frame.php?ruc=217-02-01&width=400&height=300",
-    "iframe|https://www.youtube.com/embed/GKOyGoRE0Tg?autoplay=1&mute=1"
+    "iframe|https://www.youtube.com/embed/GKOyGoRE0Tg?autoplay=1&mute=1",
+    "https://g1.ipcamlive.com/player/player.php?alias=bhisunset&autoplay=1"
   ],
   [
     "Southport Cam",
