@@ -106,7 +106,9 @@ var aIMG = [
   [
     "GOES19 Atlantic Basin",
     "https://cdn.star.nesdis.noaa.gov/GOES19/ABI/SECTOR/taw/Sandwich/GOES19-TAW-Sandwich-900x540.gif",
-    "https://cdn.star.nesdis.noaa.gov/GOES19/GLM/SECTOR/taw/EXTENT3/GOES19-TAW-EXTENT3-900x540.gif"
+    "https://cdn.star.nesdis.noaa.gov/GOES19/GLM/SECTOR/taw/EXTENT3/GOES19-TAW-EXTENT3-900x540.gif",
+    "https://tropic.ssec.wisc.edu/real-time/atlantic/images/irng8.GIF",
+    "https://tropic.ssec.wisc.edu/real-time/mtpw2/webAnims/tpw_nrl_colors/natl/mimictpw_natl_latest.gif"
   ],
   [
     "K4IR Scanner",
