@@ -1,16 +1,16 @@
-// CUT START
-var disableSetup = false; // Manually set to true to disable setup page menu option
-var topBarCenterText = "KR4DHF";
+const disableSetup = false;
+const disableLdCfg = false;
+let topBarCenterText = "KR4DHF";
 
 // Grid layout desired
-var layout_cols = 4;
-var layout_rows = 3;
+let layout_cols = 4;
+let layout_rows = 3;
 
 // Menu items
-// Structure is as follows: HTML Color code, Option, target URL, scaling 1=Original Size, side (optional, nothing is Left, "R" is Right)
+// Structure is as follows HTML Color code, Option, target URL, scaling 1=Original Size, side (optional, nothing is Left, "R" is Right)
 // The values are [color code, menu text, target link, scale factor, side],
 // add new lines following the structure for extra menu options. The comma at the end is important!
-var aURL = [
+let aURL = [
   [
     "#2196f3",
     "Propagation Map",
@@ -62,30 +62,13 @@ var aURL = [
   ]
 ];
 
-// Feed items
-// Structure is as follows: target URL
-// The values are [target link]
-var aRSS = [
-  [
-    "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=63&CID=Severe-Weather-7",
-    5
-  ],
-  [
-    "https://www.nhc.noaa.gov/xml/TWDAT.xml",
-    60
-  ],
-  [
-    "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=1&CID=Emergency-Management-15",
-    60
-  ]
-];
-
-// Dashboard Tiles items
-// Tile Structure is Title, Source URL
-// To display a website on the tiles use "iframe|" keyword before the tile URL
-// [Title, Source URL],
+// Dashboard items
+// Structure is Title, Image Source URL
+// [Title, Image Source URL],
 // the comma at the end is important!
-var aIMG = [
+// You can't add more items because there are only 12 placeholders on the dashboard
+// but you can replace the titles and the images with anything you want.
+let aIMG = [
   [
     "Radar",
     "https://radar.weather.gov/ridge/standard/CONUS-LARGE_loop.gif",
@@ -152,26 +135,31 @@ var aIMG = [
     "https://www.nhc.noaa.gov/xgtwo/two_pac_7d0.png"
   ],
   [
-    "Propagation Stats",
-    "https://www.hamqsl.com/solarbc.php",
-    "https://prop.kc2g.com/renders/current/mufd-normal-now.svg"
+    "Fire Weather",
+    "https://www.spc.noaa.gov/products/fire_wx/day1otlk_fire.png",
   ]
 ];
 
 // Image rotation intervals in milliseconds per tile - If the line below is commented, tiles will be rotated every 5000 milliseconds (5s)
-var tileDelay = [
-  10000,
-  10000,
-  10000,
-  10000,
-  0,
-  10000,
-  100000,
-  0,
-  5000,
-  5000,
-  5000,
-  5000
+let tileDelay = [
+  10000,  10000,  10000,  10000,
+  0,      10000,  100000, 0,
+  5000,   5000,   5000,   10000
 ];
 
-// CUT END
+// RSS feed items
+// Structure is [feed URL, refresh interval in minutes]
+let aRSS = [
+  [
+    "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=63&CID=Severe-Weather-7",
+    5
+  ],
+  [
+    "https://www.nhc.noaa.gov/xml/TWDAT.xml",
+    60
+  ],
+  [
+    "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=1&CID=Emergency-Management-15",
+    60
+  ]
+];

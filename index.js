@@ -127,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     cell.appendChild(colorInput);
                 } else {
                     if (Array.isArray(item[colIndex])) {
-                        // Handle array of image URLs
+                        // Handle array of image URLs                  
                         const container = document.createElement("div");
                         item[colIndex].forEach((url, urlIndex) => {
                             const textarea = document.createElement("input");
@@ -172,9 +172,24 @@ document.addEventListener("DOMContentLoaded", () => {
                         input.value = item[colIndex];
                         input.onchange = (e) =>
                         (item[colIndex] =
-                            colIndex === 2
+                            colIndex === 2 && tableId === "dashboardTable"
                                 ? parseInt(e.target.value, 10)
                                 : e.target.value);
+
+                        // ADD CONVERT TO ARRAY BUTTON FOR TITLES
+                        if (tableId === "dashboardTable" && colIndex === 0 && !Array.isArray(item[colIndex])) {
+                            const convertBtn = document.createElement("button");
+                            convertBtn.textContent = "Convert to Array";
+                            convertBtn.style.fontSize = "10px";
+                            convertBtn.style.height = "18px";
+                            convertBtn.onclick = () => {
+                                item[colIndex] = [item[colIndex]];
+                                updateTable(tableId, data, columns);
+                            };
+                            cell.appendChild(document.createElement("br"));
+                            cell.appendChild(convertBtn);
+                        }
+
                         cell.appendChild(input);
                     }
                 }
@@ -500,61 +515,386 @@ function minimalConfiguration() {
     start();
 }
 
-async function checkIfFileExists(url) {
-    try {
-        const response = await fetch(url, {
-            method: "HEAD",
-            mode: "no-cors",
+// Helper to replace date placeholders
+function replaceDatePlaceholders(obj) {
+    const now = new Date();
+    const YYYYMMDD = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const DATE_ISO = now.toISOString().slice(0, 10);
+
+    if (typeof obj === 'string') {
+        return obj.replace(/{{YYYYMMDD}}/g, YYYYMMDD).replace(/{{DATE_ISO}}/g, DATE_ISO);
+    } else if (Array.isArray(obj)) {
+        return obj.map(replaceDatePlaceholders);
+    } else if (typeof obj === 'object' && obj !== null) {
+        Object.keys(obj).forEach(key => {
+            obj[key] = replaceDatePlaceholders(obj[key]);
         });
-        return response.ok;
-    } catch (error) {
-        console.error("Error checking file:", error);
-        return false;
+        return obj;
     }
+    return obj;
 }
 
-async function loadScriptIfExists(url) {
-    const exists = await checkIfFileExists(url);
-    if (exists) {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src = url;
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
+function processConfig(settings) {
+    // Handle dynamic placeholders
+    settings = replaceDatePlaceholders(settings);
+
+    // Copy settings to window variables
+    window.settingsSource = settings.settingsSource || "file";
+
+    if (settings.disableSetup !== undefined) window.disableSetup = settings.disableSetup;
+    if (settings.topBarCenterText) window.topBarCenterText = settings.topBarCenterText;
+    if (settings.layout_cols) window.layout_cols = settings.layout_cols;
+    if (settings.layout_rows) window.layout_rows = settings.layout_rows;
+    if (settings.aURL) window.aURL = settings.aURL;
+    if (settings.aRSS) window.aRSS = settings.aRSS;
+
+    // Handle aIMG (supports both nested [Title, [Urls], Delay] and flat [Title, Url1, Url2...] formats)
+    if (settings.aIMG) {
+        window.aIMG = [];
+        window.tileDelay = [];
+
+        JSON.parse(JSON.stringify(settings.aIMG)).forEach((subArray) => {
+            // subArray is [Title, [Urls], Delay]
+
+            // Extract delay
+            let delay = 30000;
+            if (subArray.length >= 3) {
+                delay = subArray[2];
+            }
+            window.tileDelay.push(delay);
+
+            // Extract URLs and flatten
+            // The main logic expects aIMG as [Title, Url1, Url2...]
+            let flattened = [subArray[0]]; // Title
+            if (Array.isArray(subArray[1])) {
+                flattened.push(...subArray[1]);
+            } else {
+                flattened.push(subArray[1]);
+            }
+            window.aIMG.push(flattened);
         });
+    } else if (settings.aImages) {
+        // Fallback for old aImages (internal format)
+        window.aIMG = [];
+        window.tileDelay = [];
+
+        JSON.parse(JSON.stringify(settings.aImages)).forEach((subArray) => {
+            // subArray is [Title, [Urls], Delay]
+
+            // Extract delay
+            let delay = 30000;
+            if (subArray.length >= 3) {
+                delay = subArray[2];
+            }
+            window.tileDelay.push(delay);
+
+            // Extract URLs and flatten
+            let flattened = [subArray[0]]; // Title
+            if (Array.isArray(subArray[1])) {
+                flattened.push(...subArray[1]);
+            } else {
+                flattened.push(subArray[1]);
+            }
+            window.aIMG.push(flattened);
+        });
+    }
+
+    start();
+}
+
+// ====================================================================
+// BREADCRUMB NAVIGATION SYSTEM
+// ====================================================================
+
+/**
+ * Parse and validate the breadcrumb parameter from the current URL
+ * @returns {Array<string>} Array of config filenames in the breadcrumb trail
+ */
+function getCurrentBreadcrumb() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const breadcrumbParam = urlParams.get('breadcrumb');
+
+    if (!breadcrumbParam) return [];
+
+    // Handle both encoded (%2B) and unencoded (+) separators
+    // URLSearchParams automatically decodes %2B to +, so we can split on +
+    const configs = breadcrumbParam.split('+').map(c => c.trim()).filter(c => c);
+
+    // Validate config files (must end with .js or .json)
+    const validated = configs.filter(config => {
+        const valid = config.toLowerCase().endsWith('.js') || config.toLowerCase().endsWith('.json');
+        if (!valid) {
+            console.warn(`Breadcrumb: Skipping invalid config entry: ${config}`);
+        }
+        return valid;
+    });
+
+    return validated;
+}
+
+/**
+ * Build a navigation URL with proper breadcrumb tracking
+ * @param {string} targetConfig - The config file to navigate to
+ * @returns {string} Constructed URL with breadcrumb parameter
+ */
+function buildNavigationUrl(targetConfig) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentConfig = urlParams.get('config') || 'config.js';
+
+    // Get current breadcrumb trail
+    let breadcrumb = getCurrentBreadcrumb();
+
+    // Determine if current config is root
+    const isCurrentRoot = (currentConfig === 'config.js' || currentConfig === 'config.json');
+    const isTargetRoot = (targetConfig === 'config.js' || targetConfig === 'config.json');
+
+    // If navigating to root, clear breadcrumb
+    if (isTargetRoot) {
+        return window.location.pathname + '?config=' + encodeURIComponent(targetConfig);
+    }
+
+    // Add current config to breadcrumb if not already root
+    if (!isCurrentRoot) {
+        // Prevent duplicate entries
+        if (!breadcrumb.includes(currentConfig)) {
+            breadcrumb.push(currentConfig);
+        }
     } else {
-        console.log("File does not exist");
-        // Try to recover
-        minimalConfiguration();
-        return Promise.reject("File does not exist");
+        // If current is root, start fresh breadcrumb from root
+        breadcrumb = [currentConfig];
+    }
+
+    // Limit breadcrumb depth to 10 items
+    if (breadcrumb.length > 10) {
+        breadcrumb = breadcrumb.slice(-10);
+    }
+
+    // Build URL with breadcrumb parameter
+    const breadcrumbStr = breadcrumb.join('+');
+    return window.location.pathname +
+        '?breadcrumb=' + encodeURIComponent(breadcrumbStr) +
+        '&config=' + encodeURIComponent(targetConfig);
+}
+
+/**
+ * Build URL for navigating back to previous config in breadcrumb trail
+ * @returns {string} URL for back navigation
+ */
+function buildPreviousUrl() {
+    const breadcrumb = getCurrentBreadcrumb();
+
+    if (breadcrumb.length === 0) {
+        // No breadcrumb, go to default root
+        return window.location.pathname + '?config=config.js';
+    }
+
+    // Get the last config from breadcrumb (the one to navigate to)
+    const previousConfig = breadcrumb[breadcrumb.length - 1];
+
+    // Remove the last item to create truncated breadcrumb
+    const truncatedBreadcrumb = breadcrumb.slice(0, -1);
+
+    if (truncatedBreadcrumb.length === 0) {
+        // Going back to root, no breadcrumb needed
+        return window.location.pathname + '?config=' + encodeURIComponent(previousConfig);
+    }
+
+    // Build URL with truncated breadcrumb
+    const breadcrumbStr = truncatedBreadcrumb.join('+');
+    return window.location.pathname +
+        '?breadcrumb=' + encodeURIComponent(breadcrumbStr) +
+        '&config=' + encodeURIComponent(previousConfig);
+}
+
+// ====================================================================
+// END BREADCRUMB NAVIGATION SYSTEM
+// ====================================================================
+
+function ensureBackMenuItem(settings) {
+    // Get current breadcrumb trail
+    const breadcrumb = getCurrentBreadcrumb();
+
+    // Only add PREVIOUS menu item if we have breadcrumb history
+    if (breadcrumb.length === 0) {
+        // No breadcrumb history, no PREVIOUS menu needed
+        return;
+    }
+
+    // Initialize aURL if not exists
+    if (!settings.aURL) {
+        settings.aURL = [];
+    }
+
+    // Check if PREVIOUS menu item already exists
+    const hasPrevious = settings.aURL.some(item => {
+        if (!Array.isArray(item)) return false;
+        const title = String(item[1] || '').toLowerCase();
+        return title === 'previous' || title === 'prev';
+    });
+
+    if (hasPrevious) {
+        // Already has PREVIOUS menu item, skip
+        return;
+    }
+
+    // Get the previous config filename (last item in breadcrumb)
+    const previousConfig = breadcrumb[breadcrumb.length - 1];
+
+    // Add PREVIOUS menu item with color #212ff3
+    // Store just the config filename, MenuOpt() will handle the navigation
+    console.log(`Adding PREVIOUS menu item for breadcrumb navigation (back to: ${previousConfig})`);
+    settings.aURL.unshift(["212ff3", "PREVIOUS", previousConfig, "1", "R"]);
+}
+
+function loadScriptConfig(url, fallback) {
+    const script = document.createElement("script");
+    script.src = url;
+    script.onload = async () => {
+        console.log(`${url} loaded successfully (script)`);
+
+        // CHECK FOR NEW JSONP-STYLE CONFIG
+        if (window.hamdashConfig) {
+            console.log("Found window.hamdashConfig (JSONP)");
+            window.curSettingsSrc = `${url} (Data Object)`;
+            const settings = window.hamdashConfig;
+
+            // Ensure navigation
+            ensureBackMenuItem(settings);
+
+            processConfig(settings);
+            // Clear it so it doesn't pollute subsequent loads
+            window.hamdashConfig = undefined;
+            return;
+        }
+
+        // wait for config to finish any async work (Legacy JS logic support)
+        if (window.configReady && typeof window.configReady.then === "function") {
+            try { await window.configReady; } catch (e) { console.warn("configReady rejected:", e); }
+        }
+
+        // Legacy: config.js likely set window variables directly
+        window.curSettingsSrc = `${url} (Legacy JS)`;
+
+        // We still want to ensure back menu item even for legacy JS files if possible
+        // But for legacy, we have to inspect the global window.aURL
+        if (window.aURL) {
+            // Re-wrap in a temporary object to use our helper
+            const tempSettings = { aURL: window.aURL };
+            ensureBackMenuItem(tempSettings);
+            window.aURL = tempSettings.aURL;
+        }
+
+        start();
+    };
+    script.onerror = (error) => {
+        console.error(`Failed to load ${url}:`, error);
+        if (fallback) {
+            console.log("Attempting fallback...");
+            fallback();
+        } else {
+            minimalConfiguration();
+        }
+    };
+    document.head.appendChild(script);
+}
+
+async function loadJsonConfig(url, fallback) {
+    const isFileProtocol = window.location.protocol === "file:";
+    if (isFileProtocol) {
+        console.warn(`Loading JSON config ${url} via file:// protocol might fail due to CORS.`);
+    }
+
+    try {
+        const response = await fetch(url + "?_=" + Date.now());
+        if (!response.ok) {
+            throw new Error(`Status ${response.status}`);
+        }
+        const settings = await response.json();
+        console.log(`${url} loaded successfully`);
+        window.curSettingsSrc = `${url} (JSON)`;
+
+        ensureBackMenuItem(settings);
+        processConfig(settings);
+    } catch (e) {
+        console.error(`Failed to load ${url}:`, e);
+        if (fallback) {
+            console.log("Attempting fallback from JSON load...");
+            fallback(e);
+        } else {
+            minimalConfiguration();
+        }
     }
 }
 
 async function loadConfig() {
-    const isFileProtocol = window.location.protocol === 'file:';
-    if (isFileProtocol) {
-        // console.warn('Running from file system, some features may not work due to browser security restrictions.');
-        // Directly load the script without checking if it exists
-        const script = document.createElement('script');
-        script.src = 'config.js';
-        script.onload = () => {
-            console.log('config.js loaded successfully');
-            window.curSettingsSrc = "config.js from file system";
-            start();
-        };
-        script.onerror = (error) => {
-            console.error('Failed to load config.js:', error);
-            // Try to recover
-            minimalConfiguration();
-        };
-        document.head.appendChild(script);
-    } else {
-        await loadScriptIfExists('config.js');
-        console.log('config.js loaded successfully');
-        window.curSettingsSrc = "config.js from server";
-        start();
+    const urlParams = new URLSearchParams(window.location.search);
+    let configParam = urlParams.get("config");
+
+    // Smart config parameter cleaning: handle double-encoded URLs
+    if (configParam) {
+        // Check for double encoding (e.g., %253D instead of %3D)
+        if (configParam.includes('%25')) {
+            console.warn('Detected double-encoded URL, attempting to clean...');
+            try {
+                configParam = decodeURIComponent(configParam);
+            } catch (e) {
+                console.error('Failed to decode config parameter:', e);
+            }
+        }
+
+        // Extract just the filename if it contains URL parameters or encoding issues
+        // This handles cases like "config.js?breadcrumb=..." being passed as the config param
+        if (configParam.includes('?')) {
+            const parts = configParam.split('?');
+            configParam = parts[0];
+            console.warn(`Config parameter contained URL params, extracted: ${configParam}`);
+        }
     }
+
+    // Case 1: user specified a file
+    if (configParam) {
+        const isJson = configParam.toLowerCase().endsWith(".json");
+        if (isJson) {
+            loadJsonConfig(configParam, () => minimalConfiguration());
+        } else {
+            loadScriptConfig(configParam, () => minimalConfiguration());
+        }
+        return;
+    }
+
+    // Case 2: Default loading chain
+    // Try config.js -> config.json -> Minimal
+    console.log("No config specified, attempting default chain: config.js -> config.json");
+
+    loadScriptConfig("config.js", () => {
+        console.log("config.js failed, falling back to config.json");
+        loadJsonConfig("config.json", () => {
+            console.log("config.json failed, falling back to minimal");
+            minimalConfiguration();
+        });
+    });
+}
+
+// Open OS file picker and reload page with the selected filename as ?config=<filename>
+function openConfigFileDialog() {
+    let input = document.getElementById('configFileInput');
+    if (!input) {
+        input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.js,text/javascript,.json,application/json';
+        input.id = 'configFileInput';
+        input.style.display = 'none';
+        input.addEventListener('change', (ev) => {
+            const file = ev.target.files && ev.target.files[0];
+            if (!file) return;
+            const filename = file.name;
+            // Use buildNavigationUrl to maintain breadcrumb chain
+            const newUrl = buildNavigationUrl(filename);
+            window.location.href = newUrl;
+        });
+        document.body.appendChild(input);
+    }
+    input.click();
 }
 
 async function main() {
@@ -566,50 +906,23 @@ async function main() {
             console.log('Settings found in localStorage');
             // Parse the settings JSON string
             const parsedSettings = JSON.parse(settings);
-            // Copy settings to separate variables
             window.settingsSource = parsedSettings.settingsSource;
+
             if (settingsSource === 'localStorage') {
                 console.log('Loading settings from localStorage');
-                window.disableSetup = parsedSettings.disableSetup;
-                window.topBarCenterText = parsedSettings.topBarCenterText;
-                window.layout_cols = parsedSettings.layout_cols;
-                window.layout_rows = parsedSettings.layout_rows;
-                window.aURL = parsedSettings.aURL;
-                window.aRSS = parsedSettings.aRSS;
-                window.aIMG = parsedSettings.aImages;
-                // New array to hold the last elements for tileDelay
-                window.tileDelay = [];
-                // Iterate over the original array of arrays to extract tileDelay
-                aIMG.forEach(subArray => {
-                    // Remove the last element from the sub-array and add it to the new array
-                    const lastElement = subArray.pop();
-                    tileDelay.push(lastElement);
-                });
-
-                // Iterate over the original array of arrays to flatten the sub-arrays
-                aIMG.forEach(subArray => {
-                    // Replace the second element with its contents separated by commas and surrounded by quotes
-                    if (Array.isArray(subArray[1])) {
-                        subArray[1] = subArray[1].map(element => `${element}`).join(',');
-                    }
-                    const newElements = subArray[1].split(',');
-                    // Replace the second element with the new elements
-                    subArray.splice(1, 1, ...newElements);
-                });
                 window.curSettingsSrc = "Browser Local Storage";
-                start();
+                processConfig(parsedSettings);
             } else {
-                console.log('Settings found in localStorage but loading from config.js file');
-                // Load the settings from config.js file
+                console.log('Settings found in localStorage but loading from file');
                 loadConfig();
             }
         } else {
             console.log('No settings found in localStorage');
-            // Load the settings from config.js file
             loadConfig();
         }
     } catch (error) {
         console.error('Failed to load configuration:', error);
+        loadConfig();
     }
 }
 
@@ -618,7 +931,7 @@ help += "Double click again to close full screen view.\n";
 help += "Right click on an image to display the next one.\n";
 help += "Images rotates every 30 seconds automatically by default.\n";
 
-const currentVersion = "v2025.04.02";
+const currentVersion = "v2026.01.30";
 
 async function getLatestVersion() {
     try {
@@ -659,7 +972,19 @@ function getVideoType(src) {
 }
 
 function isFrame(src) {
-    return src.includes("iframe|");
+    return src.includes("iframe|") || src.includes("iframedark|");
+}
+
+function isDarkFrame(src) {
+    return src.includes("iframedark|");
+}
+
+function isDark(src) {
+    return src.includes("dark|");
+}
+
+function isInvert(src) {
+    return src.includes("invert|");
 }
 
 function oldformatArray(arr) {
@@ -703,12 +1028,46 @@ function rotStop() {
 function MenuOpt(num) {
     window.stop();
     rotStop();
-    if (aURL[num][1].toLowerCase() == "refresh") {
+
+    // If the menu title or URL is a config filename (e.g. "satellite.js" or "traffic.json"), reload with breadcrumb tracking
+    const title = String(aURL[num][1] || "");
+    const link = String(aURL[num][2] || "");
+    const menuText = title;
+
+    // Special handling for PREVIOUS button - use buildPreviousUrl() to truncate breadcrumb
+    if (menuText.toUpperCase() === "PREVIOUS" || menuText.toUpperCase() === "PREV") {
+        const previousUrl = buildPreviousUrl();
+        window.location.href = previousUrl;
+        return;
+    }
+
+    // Check if this is a config file navigation (.js or .json)
+    const isConfigFile = title.toLowerCase().endsWith(".js") ||
+        title.toLowerCase().endsWith(".json") ||
+        link.toLowerCase().endsWith(".js") ||
+        link.toLowerCase().endsWith(".json");
+
+    if (isConfigFile) {
+        // Prefer the explicit URL if it contains the filename, otherwise use the title
+        const filename = (link.toLowerCase().endsWith(".js") || link.toLowerCase().endsWith(".json")) ? link : title;
+
+        // Use buildNavigationUrl for breadcrumb-aware navigation
+        const newUrl = buildNavigationUrl(filename);
+        window.location.href = newUrl;
+        return;
+    }
+
+
+    if (menuText.toLowerCase() == "refresh") {
         location.reload();
         setRot();
-    } else if (aURL[num][1].toLowerCase() == "help") {
+    } else if (menuText.toLowerCase() == "load cfg") {
+        // open file picker and reload page with ?config=<filename>
+        openConfigFileDialog();
+        return;
+    } else if (menuText.toLowerCase() == "help") {
         alert(help);
-    } else if (aURL[num][1].toLowerCase() == "setup") {
+    } else if (menuText.toLowerCase() == "setup") {
         // Configure visualization
         document.getElementById("FullScreen").style.display = "none";
         document.getElementById("fixedSection").style.display = "block";
@@ -750,7 +1109,7 @@ function MenuOpt(num) {
         updateMenuTable();
         updateFeedTable();
         adjustDashboardItems();
-    } else if (aURL[num][1].toLowerCase() == "sources") {
+    } else if (menuText.toLowerCase() == "sources") {
         document.getElementById("array1").innerHTML =
             "<br>" + formatArray(aURL) + "<br><br>";
         document.getElementById("array2").innerHTML =
@@ -758,14 +1117,14 @@ function MenuOpt(num) {
         document.getElementById("array3").innerHTML =
             "<br>" + formatArray(aRSS) + "<br><br>";
         document.getElementById("array4").innerHTML =
-            `<br>Copyright (c) 2025 Pablo Sabbag, VA3HDL | Open Source License: MIT<br>
+            `<br>Copyright (c) 2026 Pablo Sabbag, VA3HDL | Open Source License: MIT<br>
             <br>Dashboard codebase version: ${currentVersion}<br><br>`;
         document.getElementById("overlay").style.display = "block";
-    } else if (aURL[num][1].toLowerCase() == "update") {
+    } else if (menuText.toLowerCase() == "update") {
         window
             .open("https://github.com/VA3HDL/hamdashboard/releases/", "_blank")
             .focus();
-    } else if (aURL[num][1].toLowerCase() == "back") {
+    } else if (menuText.toLowerCase() == "back") {
         document.getElementById("FullScreen").src = "about:blank";
         document.getElementById("iFrameContainer").style.zIndex = -2;
         document.getElementById("iFrameContainer").style.backgroundColor = "black";
@@ -775,7 +1134,14 @@ function MenuOpt(num) {
     } else {
         document.getElementById("iFrameContainer").style.zIndex = 1;
         document.getElementById("FullScreen").style.display = "block";
-        document.getElementById("FullScreen").src = aURL[num][2];
+        var src = aURL[num][2];
+        if (isDark(src)) {
+            document.getElementById("FullScreen").style.filter = "invert(1) hue-rotate(180deg)";
+            src = src.replace("dark|", "");
+        } else {
+            document.getElementById("FullScreen").style.filter = "none";
+        }
+        document.getElementById("FullScreen").src = src;
         document.getElementById("FullScreen").style.transform = "scale(" + aURL[num][3] + ")";
     }
 }
@@ -787,12 +1153,12 @@ function hideOverlay() {
 // This function shows the larger images when double click to enlarge
 function larger(event) {
     var targetElement = event.target || event.srcElement;
+
     if (largeShow == 1) {
         // Start refreshes
         setRot();
         //
         largeShow = 0;
-        document.getElementById("imgZoom").style.display = "none";
         document.getElementById("imgZoom").style.zIndex = -2;
     } else {
         // Stop refreshes
@@ -800,13 +1166,33 @@ function larger(event) {
         rotStop();
         //
         largeShow = 1;
-        largeIdx = +targetElement.id.match(/\d+/)[0];
-        document.getElementById("imgZoom").style.display = "block";
-        document.getElementById("imgZoom").style.zIndex = 3;
-        document.getElementById("ImageLarge").src =
-            targetElement.style.backgroundImage
-                .replace(/^url\(["']?/, "")
-                .replace(/["']?\)$/, "");
+
+        // Extract index more robustly (handles ClickOverlayN or ImageN)
+        const idMatch = targetElement.id.match(/\d+/);
+        if (!idMatch) {
+            console.warn("Could not find index for zoom", targetElement.id);
+            return;
+        }
+        largeIdx = +idMatch[0];
+
+        const zoomContainer = document.getElementById("imgZoom");
+        const largeImg = document.getElementById("ImageLarge");
+
+        zoomContainer.style.zIndex = 3;
+
+        // Find the source from the actual tile image
+        const sourceImg = document.getElementById("Image" + largeIdx);
+        if (sourceImg) {
+            // WHEELZOOM COMPATIBILITY: 
+            // If wheelzoom is active, sourceImg.src is a transparent placeholder.
+            // The real image is in style.backgroundImage
+            let realSrc = sourceImg.src;
+            if (sourceImg.style.backgroundImage) {
+                realSrc = sourceImg.style.backgroundImage.replace(/^url\(["']?/, "").replace(/["']?\)$/, "");
+            }
+
+            largeImg.src = realSrc;
+        }
     }
 }
 
@@ -825,22 +1211,7 @@ function rotate(event) {
     } else {
         i = +targetElement.id.match(/\d+/)[0];
     }
-    if (aIMG[i].length > 2) {
-        ++aIdx[i];
-        if (aIdx[i] > aIMG[i].length - 1) {
-            aIdx[i] = 1;
-        }
-        if (isVideo(aIMG[i][aIdx[i]])) {
-            // Is video, event is not attached to videos for now, do nothing
-        } else if (isFrame(aIMG[i][aIdx[i]])) {
-            // Is iFrame, event is not attached to iFrames for now, do nothing
-        } else {
-            // Is image
-            document.getElementById(targetElement.id).src = getImgURL(
-                aIMG[i][aIdx[i]]
-            );
-        }
-    }
+    imgRot(i);
 }
 
 function imgRot(i) {
@@ -850,35 +1221,90 @@ function imgRot(i) {
             aIdx[i] = 1;
         }
     }
+
+    // ROTATING TITLE LOGIC
+    const titleDiv = document.getElementById("Title" + i);
+    if (titleDiv && Array.isArray(aIMG[i][0])) {
+        titleDiv.innerHTML = aIMG[i][0][aIdx[i] - 1] || "";
+    }
+
+    // Conditional overlay visibility (Lock/Unlock based on content type)
+    const currentItem = aIMG[i][aIdx[i]];
+    const overlay = document.getElementById('ClickOverlay' + i);
+    if (overlay) {
+        if (isVideo(currentItem) || isFrame(currentItem)) {
+            overlay.style.display = 'block';
+        } else {
+            overlay.style.display = 'none';
+        }
+    }
+
     // console.log("aIdx", aIdx);
     // console.log("i", i, "aIdx[i]", aIdx[i], "aIMG[i][aIdx[i]]", aIMG[i][aIdx[i]]);
     vid = document.getElementById("Video" + i);
     img = document.getElementById("Image" + i);
     ifr = document.getElementById("iFrame" + i);
+
+    const isImg = !isVideo(aIMG[i][aIdx[i]]) && !isFrame(aIMG[i][aIdx[i]]);
+    const url = getImgURL(aIMG[i][aIdx[i]]);
+
     if (isVideo(aIMG[i][aIdx[i]])) {
         // Is video
-        vid.src = getImgURL(aIMG[i][aIdx[i]]);
+        vid.src = url;
         vid.classList.remove("hidden");
         // Hide others
         img.classList.add("hidden");
         ifr.classList.add("hidden");
     } else if (isFrame(aIMG[i][aIdx[i]])) {
         // Is iFrame
-        newSrc = aIMG[i][aIdx[i]].split("|");
+        var src = aIMG[i][aIdx[i]];
+        var newSrc = [];
+        if (isDarkFrame(src)) {
+            newSrc = src.split("iframedark|");
+            ifr.style.filter = "invert(1) hue-rotate(180deg)";
+        } else {
+            newSrc = src.split("iframe|");
+            ifr.style.filter = "none";
+        }
         ifr.classList.remove("hidden");
-        ifr.src = newSrc[1];
-        if (newSrc[2]) ifr.style.transform = "scale(" + newSrc[2] + ")";
+        // Handle optional scale parameter: prefix|URL|SCALE
+        var content = newSrc[1];
+        var contentParts = content.split("|");
+        ifr.src = contentParts[0];
+        if (contentParts[1]) {
+            ifr.style.transform = "scale(" + contentParts[1] + ")";
+        }
         ifr.style.zIndex = 0;
         // Hide others
         vid.classList.add("hidden");
         img.classList.add("hidden");
     } else {
         // Is image
-        img.src = getImgURL(aIMG[i][aIdx[i]]);
+        var src = aIMG[i][aIdx[i]];
+        if (isInvert(src)) {
+            img.style.filter = "invert(1)";
+            src = src.replace("invert|", "");
+        } else {
+            img.style.filter = "none";
+        }
+        img.src = getImgURL(src);
         img.classList.remove("hidden");
         // Hide others
         vid.classList.add("hidden");
         ifr.classList.add("hidden");
+    }
+
+    // FULL SCREEN ROTATION SUPPORT
+    if (largeShow == 1 && i == largeIdx) {
+        const largeImg = document.getElementById("ImageLarge");
+        if (largeImg) {
+            if (isImg) {
+                largeImg.src = url;
+            } else {
+                // If we rotate into a non-image content, close the zoom view
+                larger();
+            }
+        }
     }
 }
 
@@ -915,78 +1341,249 @@ function updateTickerSpeed() {
     }
 }
 
+// .......##.......##....########...######...######.
+// ......##.......##.....##.....##.##....##.##....##
+// .....##.......##......##.....##.##.......##......
+// ....##.......##.......########...######...######.
+// ...##.......##........##...##.........##.......##
+// ..##.......##.........##....##..##....##.##....##
+// .##.......##..........##.....##..######...######.
+
+// Store interval IDs to prevent duplicates
+let rssIntervals = [];
+let activeFetches = new Map(); // Track active fetch promises per feed URL
+// Track proxy success/failure rates per feed
+let proxyHealth = {};
+
 // Function to fetch and display the RSS feed
 function fetchAndDisplayRss() {
-    const proxyUrl = "https://corsproxy.io/";
-    const rssTickerContent = document.getElementById("rss-ticker-content");
+    // Clear any existing intervals first
+    rssIntervals.forEach(intervalId => clearInterval(intervalId));
+    rssIntervals = [];
 
-    // Array to store the content of each feed
+    // List of CORS proxies to try (in order of preference)
+    const corsProxies = [
+        {
+            name: 'allorigins',
+            url: (feedUrl) => `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`
+        },
+        {
+            name: 'corsproxy',
+            url: (feedUrl) => `https://corsproxy.io/?url=${encodeURIComponent(feedUrl)}`
+        },
+        {
+            name: 'codetabs',
+            url: (feedUrl) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(feedUrl)}`
+        },
+        {
+            name: 'thingproxy',
+            url: (feedUrl) => `https://thingproxy.freeboard.io/fetch/${feedUrl}`
+        }
+    ];
+
+    const rssTickerContent = document.getElementById("rss-ticker-content");
+    if (!rssTickerContent) {
+        console.error("RSS ticker content element not found");
+        return;
+    }
+
     const feedContents = new Array(aRSS.length).fill("");
+    let loadedFeeds = 0;
 
     console.log("Fetching RSS feeds...");
+
     aRSS.forEach(([rssUrl, interval], index) => {
-        const fetchFeed = () => {
-            console.log(`Fetching feed: ${rssUrl}`);
-            fetch(proxyUrl + "?url=" + encodeURIComponent(rssUrl))
-                .then((response) => response.text())
-                .then((data) => {
-                    const parser = new DOMParser();
-                    const xmlDoc = parser.parseFromString(data, "text/xml");
+        const fetchFeed = async (retryCount = 0, maxRetries = 1) => {
+            // Prevent multiple simultaneous fetches of the same feed
+            if (activeFetches.has(rssUrl)) {
+                console.log(`⏸️ Fetch already in progress for ${rssUrl}, skipping...`);
+                return;
+            }
 
-                    // Automatically detect whether the feed uses "item" or "entry" tags
-                    let itmTag = "item"; // Default to RSS
-                    if (xmlDoc.querySelector("entry")) {
-                        itmTag = "entry"; // Switch to Atom if "entry" is found
-                    }
+            console.log(`📡 Fetching feed: ${rssUrl}${retryCount > 0 ? ` (retry ${retryCount})` : ''}`);
 
-                    const feedTitle = xmlDoc.querySelector("channel > title, feed > title")?.textContent || "Unknown Feed";
-                    const lastUpdated = xmlDoc.querySelector("channel > lastBuildDate, feed > updated")?.textContent || "Unknown Time";
+            // Initialize proxy health tracking for this feed if needed
+            if (!proxyHealth[rssUrl]) {
+                proxyHealth[rssUrl] = {};
+                corsProxies.forEach(proxy => {
+                    proxyHealth[rssUrl][proxy.name] = { successes: 0, failures: 0 };
+                });
+            }
 
-                    const items = xmlDoc.querySelectorAll(itmTag);
-                    console.log(`Found ${items.length} items in feed: ${rssUrl}`);
+            // Sort proxies by success rate for this specific feed
+            const sortedProxies = [...corsProxies].sort((a, b) => {
+                const healthA = proxyHealth[rssUrl][a.name];
+                const healthB = proxyHealth[rssUrl][b.name];
+                const rateA = healthA.successes / (healthA.successes + healthA.failures + 1);
+                const rateB = healthB.successes / (healthB.successes + healthB.failures + 1);
+                return rateB - rateA;
+            });
 
-                    let feedText = `<span style="font-size: 0.9em; color: #aaa;"> ${feedTitle} - Last Updated: ${lastUpdated} </span> - `;
+            // Create the fetch promise and store it
+            const fetchPromise = (async () => {
+                try {
+                    // Try all proxies in parallel (race to success)
+                    const proxyPromises = sortedProxies.map(async (proxy) => {
+                        const proxyUrl = proxy.url(rssUrl);
 
-                    items.forEach((item) => {
-                        const title = item.querySelector("title").textContent;
+                        try {
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
 
-                        // Handle both <link href="..."> and <link>...</link>
-                        const linkElement = item.querySelector("link");
-                        let link = "";
-                        if (linkElement) {
-                            if (linkElement.getAttribute("href")) {
-                                // If <link href="...">
-                                link = linkElement.getAttribute("href");
-                            } else {
-                                // If <link>...</link>
-                                link = linkElement.textContent;
+                            const response = await fetch(proxyUrl, {
+                                signal: controller.signal,
+                                cache: 'no-cache',
+                                headers: {
+                                    'Accept': 'application/rss+xml, application/xml, text/xml, application/atom+xml'
+                                }
+                            });
+                            clearTimeout(timeoutId);
+
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}`);
                             }
-                        }
 
-                        // console.log("title:", title);
-                        // console.log("link:", link);
-                        feedText += `<a href="${link}" target="_blank" style="margin-right: 50px;">${title}</a>`;
+                            const data = await response.text();
+
+                            // Check if we actually got XML (not an HTML error page)
+                            const trimmedData = data.trim();
+                            if (!trimmedData.startsWith('<?xml') &&
+                                !trimmedData.startsWith('<rss') &&
+                                !trimmedData.startsWith('<feed') &&
+                                !trimmedData.includes('<rss') &&
+                                !trimmedData.includes('<feed')) {
+                                throw new Error('Response is not XML');
+                            }
+
+                            const parser = new DOMParser();
+                            const xmlDoc = parser.parseFromString(data, "text/xml");
+
+                            // Check for XML parsing errors
+                            const parserError = xmlDoc.querySelector('parsererror');
+                            if (parserError) {
+                                throw new Error('XML parsing error');
+                            }
+
+                            // Automatically detect whether the feed uses "item" or "entry" tags
+                            let itmTag = "item"; // Default to RSS
+                            if (xmlDoc.querySelector("entry")) {
+                                itmTag = "entry"; // Switch to Atom if "entry" is found
+                            }
+
+                            const feedTitle = xmlDoc.querySelector("channel > title, feed > title")?.textContent || "Unknown Feed";
+                            const lastUpdated = xmlDoc.querySelector("channel > lastBuildDate, feed > updated")?.textContent || "Unknown Time";
+
+                            const items = xmlDoc.querySelectorAll(itmTag);
+
+                            if (items.length === 0) {
+                                throw new Error('No items found in feed');
+                            }
+
+                            // Success! Update proxy health
+                            proxyHealth[rssUrl][proxy.name].successes++;
+
+                            console.log(`✅ Loaded ${items.length} items from ${rssUrl} (${proxy.name})`);
+
+                            let feedText = `<span style="font-size: 0.9em; color: #aaa;"> ${feedTitle} - Last Updated: ${lastUpdated} </span> - `;
+
+                            items.forEach((item) => {
+                                const title = item.querySelector("title")?.textContent || "No title";
+
+                                // Handle both <link href="..."> and <link>...</link>
+                                const linkElement = item.querySelector("link");
+                                let link = "";
+                                if (linkElement) {
+                                    if (linkElement.getAttribute("href")) {
+                                        link = linkElement.getAttribute("href");
+                                    } else {
+                                        link = linkElement.textContent.trim();
+                                    }
+                                }
+
+                                feedText += `<a href="${link}" target="_blank" style="margin-right: 50px;">${title}</a>`;
+                            });
+
+                            // Return the successful result
+                            return { index, feedText, proxy: proxy.name };
+
+                        } catch (error) {
+                            // Update proxy health on failure
+                            proxyHealth[rssUrl][proxy.name].failures++;
+                            // Only log significant errors
+                            if (!error.message.includes('aborted') && !error.message.includes('Failed to fetch')) {
+                                console.warn(`❌ ${proxy.name} failed for ${rssUrl}: ${error.message}`);
+                            }
+                            throw error; // Re-throw to be caught by Promise.any
+                        }
                     });
 
-                    // Update the content for this feed in the array
-                    feedContents[index] = feedText;
+                    // Wait for the first successful proxy (race condition)
+                    const result = await Promise.any(proxyPromises);
+
+                    // Update the content for this feed (only once!)
+                    feedContents[index] = result.feedText;
+                    loadedFeeds++;
 
                     // Combine all feeds and update the ticker content
-                    rssTickerContent.innerHTML = feedContents.join("") || "Failed to load RSS feeds.";
+                    const displayContent = feedContents.filter(f => f).join("") ||
+                        `<span style="color: #aaa;">Loading feeds... (${loadedFeeds}/${aRSS.length})</span>`;
+                    rssTickerContent.innerHTML = displayContent;
 
                     // Update the ticker speed
                     updateTickerSpeed();
-                })
-                .catch((error) => {
-                    console.error(`Error fetching RSS feed from ${rssUrl}:`, error);
-                });
+
+                    return result;
+
+                } catch (error) {
+                    // All proxies failed
+                    console.error(`🚫 All proxies failed for ${rssUrl}`);
+
+                    // Try retry if we haven't exceeded max retries
+                    if (retryCount < maxRetries) {
+                        const retryDelay = (retryCount + 1) * 3000; // 3s, 6s
+                        console.log(`⏳ Retrying ${rssUrl} in ${retryDelay / 1000} seconds...`);
+
+                        // Remove from active fetches before retry
+                        activeFetches.delete(rssUrl);
+
+                        await new Promise(resolve => setTimeout(resolve, retryDelay));
+                        return fetchFeed(retryCount + 1, maxRetries);
+                    } else {
+                        // Final failure
+                        console.error(`💀 Giving up on ${rssUrl} after ${maxRetries + 1} attempts`);
+                        const domain = rssUrl.split('/')[2];
+                        feedContents[index] = `<span style="color: #f88; margin-right: 50px;">⚠️ ${domain} unavailable</span>`;
+                        rssTickerContent.innerHTML = feedContents.filter(f => f).join("") ||
+                            '<span style="color: #f88;">Some feeds failed to load. Check console for details.</span>';
+                        throw error;
+                    }
+                } finally {
+                    // Always remove from active fetches when done (success or failure)
+                    activeFetches.delete(rssUrl);
+                }
+            })();
+
+            // Store the active fetch promise
+            activeFetches.set(rssUrl, fetchPromise);
+
+            // Wait for it to complete
+            return fetchPromise;
         };
 
         // Fetch the feed immediately
-        fetchFeed();
+        fetchFeed().catch(err => {
+            console.error(`Failed to initialize feed ${rssUrl}:`, err);
+        });
 
         // Set up periodic refresh based on the interval (in minutes)
-        setInterval(fetchFeed, interval * 60 * 1000);
+        if (interval && interval > 0) {
+            const intervalId = setInterval(() => {
+                fetchFeed().catch(err => {
+                    console.error(`Failed to refresh feed ${rssUrl}:`, err);
+                });
+            }, interval * 60 * 1000);
+            rssIntervals.push(intervalId);
+        }
     });
 }
 
@@ -1038,39 +1635,61 @@ function start() {
     }
 
     // Get the parent div for Menu container
-    var parentDiv = document.getElementById("myMenu");
+    var parentDivL = document.getElementById("myMenuL");
     var parentDivR = document.getElementById("myMenuR");
+
+    // Preppend the Load Cfg option to the right side menu
+    if (typeof disableLdCfg === "undefined" || !disableLdCfg) {
+        aURL.unshift(
+            ["FF0000", "Load Cfg", "", "1", "R"]
+        )
+    }
 
     // Preppend the default options to the menu
     aURL.unshift(
         ["add10d", "BACK", "", "1", "L"],
+        ["0dd1a7", "Help", "", "1", "L"],
         ["add10d", "BACK", "", "1", "R"],
-        ["ff9100", "Refresh", "?_=" + Date.now(), "1"],
-        ["0dd1a7", "Help", "#", "1", "L"]
+        ["ff9100", "Refresh", "?_=" + Date.now()],
     );
 
     // Append the Setup and Sources option to the right side menu
     if (typeof disableSetup === "undefined" || !disableSetup) {
         aURL.push(
-            ["ff9100", "Setup", "#", "1", "R"]
+            ["ff9100", "Setup", "", "1", "R"]
         )
     }
 
     aURL.push(
-        ["0dd1a7", "Sources", "#", "1", "R"]
+        ["0dd1a7", "Sources", "", "1", "R"]
     );
 
     // Append the Update option to the right side menu if needed
     if (bUpdate) {
-        aURL.push(["FF0000", "Update", "#", "1", "R"]);
+        aURL.push(["FF0000", "Update", "", "1", "R"]);
     }
 
     // Append the new div to the parent div
     aURL.forEach(function (innerArray, index) {
+
+        const title = String(innerArray[1] || '').trim();
+        const link = String(innerArray[2] || '').trim();
+        const titleLower = title.toLowerCase();
+        const linkLower = link.toLowerCase();
+        const coreNames = ['back', 'refresh', 'load cfg', 'help', 'setup', 'sources', 'update'];
+
         // Create a new div element
         var newDiv = document.createElement("div");
         var color = innerArray[0].replace("#", "");
-        newDiv.innerHTML = `<a href="#" style="background-color:#${color};" onclick="MenuOpt(${index})">${innerArray[1]}</a>`;
+
+        let type = 'user';
+        if (coreNames.includes(titleLower))
+            type = 'core';
+        else if (titleLower.includes('.js') || linkLower.includes('.js'))
+            type = 'config';
+
+        newDiv.innerHTML = `<a href="#" class="menu-link menu-${type}" style="background-color:#${color};" onclick="MenuOpt(${index})">${innerArray[1]}</a>`;
+
         if (innerArray[4] == "R") {
             // Set some properties for the new div
             newDiv.id = "mySidenavR";
@@ -1078,9 +1697,9 @@ function start() {
             parentDivR.appendChild(newDiv);
         } else {
             // Set some properties for the new div
-            newDiv.id = "mySidenav";
+            newDiv.id = "mySidenavL";
             newDiv.className = "sidenav";
-            parentDiv.appendChild(newDiv);
+            parentDivL.appendChild(newDiv);
         }
     });
 
@@ -1116,6 +1735,32 @@ function start() {
         newFrame.className = "iframe-tile";
         newFrame.id = `iFrame${index}`;
         newFrame.classList.add("hidden");
+
+        // CLICK OVERLAY (Fix for missing right-click on video/iframe)
+        var clickOverlay = document.createElement("div");
+        clickOverlay.className = "click-overlay";
+        clickOverlay.id = `ClickOverlay${index}`;
+        clickOverlay.oncontextmenu = rotate;
+
+        // Initial visibility
+        const initialItem = innerArray[1];
+        if (isVideo(initialItem) || isFrame(initialItem)) {
+            clickOverlay.style.display = 'block';
+        } else {
+            clickOverlay.style.display = 'none';
+        }
+
+        clickOverlay.ondblclick = function (event) {
+            const currentItem = aIMG[index][aIdx[index]];
+            if (isVideo(currentItem) || isFrame(currentItem)) {
+                // If it's a video or iframe, UNLOCK it instead of zooming
+                console.log(`Unlocking tile ${index} for interaction`);
+                this.style.display = 'none';
+            } else {
+                // If it's an image, trigger the standard zoom
+                larger(event);
+            }
+        };
         var newSrc = " ";
 
         if (isVideo(innerArray[1])) {
@@ -1127,14 +1772,33 @@ function start() {
         } else if (isFrame(innerArray[1])) {
             // Is iFrame
             newFrame.classList.remove("hidden");
-            newSrc = innerArray[1].split("|");
-            newFrame.src = newSrc[1];
-            if (newSrc[2]) newFrame.style.transform = "scale(" + newSrc[2] + ")";
+            var src = innerArray[1];
+            var newSrc = [];
+            if (isDarkFrame(src)) {
+                newSrc = src.split("iframedark|");
+                newFrame.style.filter = "invert(1) hue-rotate(180deg)";
+            } else {
+                newSrc = src.split("iframe|");
+                newFrame.style.filter = "none";
+            }
+            var content = newSrc[1];
+            var contentParts = content.split("|");
+            newFrame.src = contentParts[0];
+            if (contentParts[1]) {
+                newFrame.style.transform = "scale(" + contentParts[1] + ")";
+            }
             newFrame.style.zIndex = 0;
         } else {
             // Is an image
             newImg.classList.remove("hidden");
-            newImg.src = getImgURL(innerArray[1]);
+            var src = innerArray[1];
+            if (isInvert(src)) {
+                newImg.style.filter = "invert(1)";
+                src = src.replace("invert|", "");
+            } else {
+                newImg.style.filter = "none";
+            }
+            newImg.src = getImgURL(src);
             newImg.onerror = function () {
                 text = "Failed to load image";
                 console.log(text, this.src);
@@ -1159,13 +1823,23 @@ function start() {
         newDiv.appendChild(video);
         newDiv.appendChild(newImg);
         newDiv.appendChild(newFrame);
+        newDiv.appendChild(clickOverlay);
         parentDiv.appendChild(newDiv);
 
-        // Create a new div element for img title if not empty
-        if (innerArray[0].length > 0) {
-            var newTtl = document.createElement("div");
-            newTtl.className = "image-title";
-            newTtl.innerHTML = innerArray[0];
+        // Create a new div element for img title
+        var newTtl = document.createElement("div");
+        newTtl.className = "image-title";
+        newTtl.id = `Title${index}`;
+
+        let initialTitle = "";
+        if (Array.isArray(innerArray[0])) {
+            initialTitle = innerArray[0][0] || "";
+        } else {
+            initialTitle = innerArray[0];
+        }
+
+        if (initialTitle.length > 0 || Array.isArray(innerArray[0])) {
+            newTtl.innerHTML = initialTitle;
             newDiv.appendChild(newTtl);
         }
     });
