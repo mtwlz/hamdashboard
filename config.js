@@ -142,9 +142,9 @@ let aIMG = [
 
 // Image rotation intervals in milliseconds per tile - If the line below is commented, tiles will be rotated every 5000 milliseconds (5s)
 let tileDelay = [
-  10000,  10000,  10000,  10000,
-  0,      10000,  100000, 0,
-  5000,   5000,   5000,   10000
+  11200,10000,11000,10100,
+  10200,10500,10300,10600,
+  30400,60700,60900,10800
 ];
 
 // RSS feed items
