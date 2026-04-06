@@ -125,7 +125,9 @@ var aIMG = [
     "Fire Weather",
     "https://www.weather.gov/images/ilm/ghwo/FireWeatherDay1.jpg",
     "https://www.spc.noaa.gov/products/fire_wx/day1otlk_fire.png",
-    "https://droughtmonitor.unl.edu/data/png/current/current_wfoilm_trd.png"
+    "https://droughtmonitor.unl.edu/data/png/current/current_wfoilm_trd.png",
+    "https://www.weather.gov/images/ilm/GraphiDSSforDSSBuilder/MaxHeatIndex_D1.png",
+    "https://www.weather.gov/images/ilm/GraphiDSSforDSSBuilder/MinRH_Day1.png"
   ]
 ];
 
