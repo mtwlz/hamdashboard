@@ -1,16 +1,16 @@
 const disableSetup = false;
 const disableLdCfg = false;
-let topBarCenterText = "KR4DHF";
+var topBarCenterText = "KR4DHF";
 
 // Grid layout desired
-let layout_cols = 4;
-let layout_rows = 3;
+var layout_cols = 4;
+var layout_rows = 3;
 
 // Menu items
 // Structure is as follows HTML Color code, Option, target URL, scaling 1=Original Size, side (optional, nothing is Left, "R" is Right)
 // The values are [color code, menu text, target link, scale factor, side],
 // add new lines following the structure for extra menu options. The comma at the end is important!
-let aURL = [
+var aURL = [
   [
     "#2196f3",
     "Propagation Map",
@@ -33,13 +33,6 @@ let aURL = [
     "R"
   ],
   [
-    "#f41f1f",
-    "WPSD",
-    "http://wpsd.local/",
-    1,
-    "L"
-  ],
-  [
     "#2196f3",
     "WEATHER",
     "https://openweathermap.org/weathermap?basemap=map&cities=true&layer=temperature&lat=34.07&lon=-78.15&zoom=5",
@@ -52,13 +45,6 @@ let aURL = [
     "https://earth.nullschool.net/#current/wind/surface/level/orthographic=-78.15,34.07,3000",
     1,
     "R"
-  ],
-  [
-    "#000000",
-    "N4GM",
-    "https://www.n4gm.org/",
-    1,
-    "L"
   ]
 ];
 
@@ -68,7 +54,7 @@ let aURL = [
 // the comma at the end is important!
 // You can't add more items because there are only 12 placeholders on the dashboard
 // but you can replace the titles and the images with anything you want.
-let aIMG = [
+var aIMG = [
   [
     "Radar",
     "https://radar.weather.gov/ridge/standard/CONUS-LARGE_loop.gif",
@@ -94,19 +80,17 @@ let aIMG = [
     "https://tropic.ssec.wisc.edu/real-time/mtpw2/webAnims/tpw_nrl_colors/natl/mimictpw_natl_latest.gif"
   ],
   [
-    "K4IR Scanner",
-    "iframe|https://www.broadcastify.com/webPlayer/24391"
+    "Traffic Cams",
+    "https://eapps.ncdot.gov/services/traffic-prod/v1/cameras/images?filename=I140_US17BUS_W2.jpg",
+    "https://eapps.ncdot.gov/services/traffic-prod/v1/cameras/images?filename=Wilimington_01.JPG"
   ],
   [
     "Area Live Cams",
     "iframe|https://www.youtube.com/embed/sBtvpwKH2BE?autoplay=1&mute=1",
-    // "iframe|https://www.youtube.com/embed/R0oOOmGt7mg?autoplay=1&mute=1",
     "iframe|https://www.youtube.com/embed/Dizx0Z2eDv8?autoplay=1&mute=1",
     "iframe|https://www.youtube.com/embed/lcANlrXCR0Q?autoplay=1&mute=1",
-    // "iframe|https://api.wetmet.net/widgets/stream/frame.php?ruc=217-02-01&width=400&height=300",
     "iframe|https://www.youtube.com/embed/itXoEFJZtD0?autoplay=1&mute=1",
     "iframe|https://www.youtube.com/embed/GKOyGoRE0Tg?autoplay=1&mute=1"
-    // "https://g1.ipcamlive.com/player/player.php?alias=bhisunset&autoplay=1"
   ],
   [
     "Southport Cam",
@@ -121,13 +105,16 @@ let aIMG = [
     "KLTX Local Wx",
     "https://www.weather.gov//images/ilm/WxStory/WeatherStory1.png",
     "https://www.weather.gov//images/ilm/WxStory/WeatherStory5.png",
-    "https://www.weather.gov/images/rah/statebrief/MaxT_SFC-Day1State.png"
+    "https://www.weather.gov/images/rah/statebrief/MaxT_SFC-Day1State.png",
+    "https://www.weather.gov/wwamap/png/ilm.png"
   ],
   [
     "Ocean Stats",
     "https://wave.marineweather.net/itide/tides/png/nc_oak_island_yaupon_beach.png",
     "https://oifdweather.pythonanywhere.com/static/current_flag.png",
-    "https://www.ospo.noaa.gov/data/cb/ssta/ssta.daily.current.png"
+    "https://graphical.weather.gov/GraphicalNDFD.php?width=515&timezone=EDT&sector=ILM&element=t&n=1",
+    "https://graphical.weather.gov/GraphicalNDFD.php?width=515&timezone=EDT&sector=ILM&element=wwa&n=1"
+    // "https://www.ospo.noaa.gov/data/cb/ssta/ssta.daily.current.png"
   ],
   [
     "Hurricane Outlook",
@@ -136,30 +123,36 @@ let aIMG = [
   ],
   [
     "Fire Weather",
+    "https://www.weather.gov/images/ilm/ghwo/FireWeatherDay1.jpg",
     "https://www.spc.noaa.gov/products/fire_wx/day1otlk_fire.png",
+    "https://droughtmonitor.unl.edu/data/png/current/current_wfoilm_trd.png"
   ]
 ];
 
 // Image rotation intervals in milliseconds per tile - If the line below is commented, tiles will be rotated every 5000 milliseconds (5s)
-let tileDelay = [
-  11200,10000,11000,10100,
-  10200,10500,10300,10600,
-  30400,60700,60900,10800
+var tileDelay = [
+  10000,  10000,  10000,  10000,
+  5000,   10000,  100000, 0,
+  5000,   5000,   5000,   10000
 ];
 
 // RSS feed items
 // Structure is [feed URL, refresh interval in minutes]
-let aRSS = [
-  [
-    "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=63&CID=Severe-Weather-7",
-    5
-  ],
+var aRSS = [
+  // [
+  //   "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=63&CID=Severe-Weather-7",
+  //   5
+  // ],
   [
     "https://www.nhc.noaa.gov/xml/TWDAT.xml",
     60
   ],
+  // [
+  //   "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=1&CID=Emergency-Management-15",
+  //   60
+  // ],
   [
-    "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=1&CID=Emergency-Management-15",
+    "https://www.brunswickcountync.gov/RSSFeed.aspx?ModID=1&CID=Fire-Marshals-Office-14",
     60
   ]
 ];
